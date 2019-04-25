@@ -1,5 +1,6 @@
 /* Copyright (C) 2002-2005 RealVNC Ltd.  All Rights Reserved.
  * Copyright 2011-2014 Pierre Ossman for Cendio AB
+ * Copyright 2019 Aaron Sowry for Cendio AB
  * 
  * This is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -43,6 +44,8 @@
 #endif
 
 #if ! (defined(WIN32) || defined(__APPLE__))
+#include <X11/extensions/XInput2.h>
+#include <X11/extensions/XI2.h>
 #include <X11/XKBlib.h>
 #endif
 
@@ -555,6 +558,7 @@ int Viewport::handle(int event)
   DownMap::const_iterator iter;
 
   switch (event) {
+
   case FL_PASTE:
     buffer = new char[Fl::event_length() + 1];
 
@@ -1175,7 +1179,6 @@ int Viewport::handleSystemEvent(void *event, void *data)
     return 1;
   }
 #endif
-
   return 0;
 }
 
