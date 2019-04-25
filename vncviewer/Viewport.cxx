@@ -71,6 +71,10 @@
 
 #include "PlatformPixelBuffer.h"
 
+#if !defined(WIN32) && !defined(__APPLE__)
+#include "GestureHandler.h"
+#endif // LINUX
+
 #include <FL/fl_draw.H>
 #include <FL/fl_ask.H>
 
@@ -97,6 +101,10 @@ extern const unsigned int code_map_osx_to_qnum_len;
 #ifdef WIN32
 #include "win32.h"
 #endif
+
+#if !defined(WIN32) && !defined(__APPLE__)
+GestureHandler* Viewport::gh = new GestureHandler();
+#endif // LINUX
 
 
 using namespace rfb;
@@ -217,7 +225,6 @@ Viewport::~Viewport()
   // them ourselves here
 }
 
-
 #if ! (defined(WIN32) || defined(__APPLE__))
 void Viewport::selectEvents() {
   XIEventMask eventmask;
@@ -238,6 +245,84 @@ void Viewport::selectEvents() {
 }
 #endif // LINUX
 
+
+void Viewport::processEventQueue(void *data) {
+  Viewport *self = (Viewport *)data;
+  std::vector<GHEvent> eventQueue;
+
+  int buttonMask = self->lastButtonMask;
+
+  eventQueue = gh->getEventQueue();
+
+  for (size_t i = 0; i < eventQueue.size(); i++) {
+    GHEvent ev = eventQueue[i];
+
+    // FIXME: Can we get away with clobbering buttonMask like this
+    // in the case of touch gestures, rather than bitshifting?
+    switch (ev.type) {
+      case GH_GestureBegin:
+	vlog.info("GH_GestureBegin (%i)", ev.detail);
+	switch (ev.detail) {
+	  case GH_LEFTBTN:
+	  case GH_MIDDLEBTN:
+	  case GH_RIGHTBTN:
+	    buttonMask = ev.detail;
+	    break;
+
+	  case GH_ZOOM:
+            self->handleKeyPress(0x1d, XK_Control_L);
+	    break;
+	}
+	break;
+
+      case GH_GestureEnd:
+	vlog.info("GH_GestureEnd (%i)", ev.detail);
+	switch (ev.detail) {
+	  case GH_LEFTBTN:
+	  case GH_MIDDLEBTN:
+	  case GH_RIGHTBTN:
+	    buttonMask = 0;
+	    break;
+
+	  case GH_ZOOM:
+            self->handleKeyRelease(0x1d);
+	    break;
+	}
+	break;
+
+      case GH_GestureUpdate:
+	vlog.info("GH_GestureUpdate (%i)", ev.detail);
+	switch (gh->getState()) {
+	  case GH_LEFTBTN:
+	  case GH_MIDDLEBTN:
+	  case GH_RIGHTBTN:
+	    break;
+
+	  case GH_VSCROLL:
+	  case GH_ZOOM:
+	    if (ev.detail > 0)
+              self->handlePointerEvent(rfb::Point(ev.event_x, ev.event_y), 8);
+	    else if (ev.detail < 0)
+              self->handlePointerEvent(rfb::Point(ev.event_x, ev.event_y), 16);
+	    break;
+	}
+	break;
+    }
+
+    self->handlePointerEvent(rfb::Point(ev.event_x, ev.event_y), buttonMask);
+  }
+
+  gh->clearEventQueue();
+}
+
+
+void Viewport::touchTimeout(void *data) {
+  if (!gh->hasState()) {
+    gh->sttTimeout();
+  }
+
+  processEventQueue(data);
+}
 
 const rfb::PixelFormat &Viewport::getPreferredPF()
 {
@@ -1279,16 +1364,29 @@ int Viewport::handleSystemEvent(void *event, void *data)
               break;
           }
           break;
+
         case XI_TouchBegin:
-          buttonMask = 1;
+          if (gh->registerEvent(devev) == 1) {
+#if (GH_STTIMEOUT == 1)
+            // First touch. Give the user some time to complete
+	    // a gesture, then come back and process the events.
+            Fl::add_timeout(GH_STTDELAY, touchTimeout, self);
+#endif
+          }
           break;
+
         case XI_TouchUpdate:
-          break;
         case XI_TouchEnd:
-          buttonMask = 0;
+	  gh->registerEvent(devev);
           break;
       }
-      self->handlePointerEvent(rfb::Point(devev->event_x, devev->event_y), buttonMask);
+
+      if (devev->evtype == XI_TouchBegin  ||
+          devev->evtype == XI_TouchUpdate ||
+	  devev->evtype == XI_TouchEnd)
+        processEventQueue(self);
+      else
+        self->handlePointerEvent(rfb::Point(devev->event_x, devev->event_y), buttonMask);
 
       XFreeEventData(fl_display, cookie);
     }
