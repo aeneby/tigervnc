@@ -96,6 +96,9 @@ static int handleXinputEvent(void *event, void *data)
         fakeEvent.type = ButtonRelease;
         fakeEvent.xbutton.button = devev->detail;
         break;
+      default:
+        XFreeEventData(fl_display, &xevent->xcookie);
+        return 0;
       }
 
       // XButtonEvent and XMotionEvent are almost identical, so we
