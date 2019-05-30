@@ -145,6 +145,8 @@ static int handleXinputEvent(void *event, void *data)
       case XI_TouchBegin:
         if (tracking_touch)
           break;
+        // FIXME: if (fullscreen_active())
+        XIAllowTouchEvents(fl_display, devev->deviceid, devev->detail, devev->event, XIAcceptTouch);
         fakeMotionEvent(devev);
         tracking_touch = true;
         touch_id = devev->detail;
