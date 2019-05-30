@@ -928,7 +928,7 @@ void DesktopWindow::grabPointer()
 		       None,
 		       XIGrabModeAsync,
 		       XIGrabModeAsync,
-		       True,
+		       true,
 		       &eventmask);
 
     if (ret) {
