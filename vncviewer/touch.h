@@ -22,7 +22,7 @@
 void enable_touch();
 void disable_touch();
 
-int xi_grabDevices(Window window);
-void xi_ungrabDevices();
+int xi2_grabDevices(Window window);
+void xi2_ungrabDevices();
 
 #endif

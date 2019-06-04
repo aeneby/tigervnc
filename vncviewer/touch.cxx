@@ -43,7 +43,7 @@ static int touch_id;
 #endif
 
 #if !defined(WIN32) && !defined(__APPLE__)
-int xi_grabDevices(Window window)
+int xi2_grabDevices(Window window)
 {
   int ret, ndevices;
 
@@ -99,7 +99,7 @@ int xi_grabDevices(Window window)
   return XIGrabSuccess;
 }
 
-void xi_ungrabDevices()
+void xi2_ungrabDevices()
 {
   int ndevices;
   XIDeviceInfo *devices, *device;

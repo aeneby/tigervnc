@@ -890,7 +890,7 @@ void DesktopWindow::ungrabKeyboard()
 void DesktopWindow::grabPointer()
 {
 #if !defined(WIN32) && !defined(__APPLE__)
-  if (xi_grabDevices(fl_xid(this))) {
+  if (xi2_grabDevices(fl_xid(this))) {
     ungrabPointer();
     return;
   }
@@ -905,7 +905,7 @@ void DesktopWindow::ungrabPointer()
   mouseGrabbed = false;
 
 #if !defined(WIN32) && !defined(__APPLE__)
-  xi_ungrabDevices();
+  xi2_ungrabDevices();
 #endif
 }
 
