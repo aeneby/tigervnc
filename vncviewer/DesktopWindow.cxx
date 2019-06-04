@@ -37,6 +37,7 @@
 #include "CConn.h"
 #include "Surface.h"
 #include "Viewport.h"
+#include "touch.h"
 
 #include <FL/Fl.H>
 #include <FL/Fl_Image_Surface.H>
@@ -894,55 +895,10 @@ void DesktopWindow::ungrabKeyboard()
 void DesktopWindow::grabPointer()
 {
 #if !defined(WIN32) && !defined(__APPLE__)
-  int ret, ndevices;
-
-  XIEventMask eventmask;
-  XIDeviceInfo *devices, *device;
-
-  unsigned char flags[XIMaskLen(XI_LASTEVENT)] = { 0 };
-
-  XISetMask(flags, XI_ButtonPress);
-  XISetMask(flags, XI_Motion);
-  XISetMask(flags, XI_ButtonRelease);
-  XISetMask(flags, XI_TouchBegin);
-  XISetMask(flags, XI_TouchUpdate);
-  XISetMask(flags, XI_TouchEnd);
-
-  eventmask.mask = flags;
-  eventmask.mask_len = sizeof(flags);
-
-  devices = XIQueryDevice(fl_display, XIAllMasterDevices, &ndevices);
-
-  for (int i = 0; i < ndevices; i++) {
-    device = &devices[i];
-
-    if (device->use != XIMasterPointer)
-      continue;
-
-    eventmask.deviceid = device->deviceid;
-
-    ret = XIGrabDevice(fl_display,
-		       device->deviceid,
-		       fl_xid(this),
-		       CurrentTime,
-		       None,
-		       XIGrabModeAsync,
-		       XIGrabModeAsync,
-		       true,
-		       &eventmask);
-
-    if (ret) {
-      if (ret == XIAlreadyGrabbed)
-        continue;
-      else {
-        vlog.error(_("Failure grabbing mouse"));
-        ungrabPointer();
-        return;
-      }
-    }
+  if (xi_grabDevices(fl_xid(this)) != XIGrabSuccess) {
+    ungrabPointer();
+    return;
   }
-
-  XIFreeDeviceInfo(devices);
 #endif
 
   mouseGrabbed = true;
@@ -952,22 +908,9 @@ void DesktopWindow::grabPointer()
 void DesktopWindow::ungrabPointer()
 {
   mouseGrabbed = false;
+
 #if !defined(WIN32) && !defined(__APPLE__)
-  int ndevices;
-  XIDeviceInfo *devices, *device;
-
-  devices = XIQueryDevice(fl_display, XIAllMasterDevices, &ndevices);
-
-  for (int i = 0; i < ndevices; i++) {
-    device = &devices[i];
-
-    if (device->use != XIMasterPointer)
-      continue;
-
-    XIUngrabDevice(fl_display, device->deviceid, CurrentTime);
-  }
-
-  XIFreeDeviceInfo(devices);
+  xi_ungrabDevices();
 #endif
 }
 

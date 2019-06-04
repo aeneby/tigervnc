@@ -38,11 +38,88 @@ static rfb::LogWriter vlog("Touch");
 #if !defined(WIN32) && !defined(__APPLE__)
 static int xi_major;
 
-static bool tracking_touch;
+static bool tracking_touch, grabbed;
 static int touch_id;
 #endif
 
 #if !defined(WIN32) && !defined(__APPLE__)
+int xi_grabDevices(Window window)
+{
+  int ret, ndevices;
+
+  XIEventMask eventmask;
+  XIDeviceInfo *devices, *device;
+
+  unsigned char flags[XIMaskLen(XI_LASTEVENT)] = { 0 };
+
+  XISetMask(flags, XI_ButtonPress);
+  XISetMask(flags, XI_Motion);
+  XISetMask(flags, XI_ButtonRelease);
+  XISetMask(flags, XI_TouchBegin);
+  XISetMask(flags, XI_TouchUpdate);
+  XISetMask(flags, XI_TouchEnd);
+
+  eventmask.mask = flags;
+  eventmask.mask_len = sizeof(flags);
+
+  devices = XIQueryDevice(fl_display, XIAllMasterDevices, &ndevices);
+
+  for (int i = 0; i < ndevices; i++) {
+    device = &devices[i];
+
+    if (device->use != XIMasterPointer)
+      continue;
+
+    eventmask.deviceid = device->deviceid;
+
+    ret = XIGrabDevice(fl_display,
+                       device->deviceid,
+                       window,
+                       CurrentTime,
+                       None,
+                       XIGrabModeAsync,
+                       XIGrabModeAsync,
+                       True,
+                       &eventmask);
+
+    if (ret) {
+      if (ret == XIAlreadyGrabbed)
+        continue;
+      else {
+        vlog.error("Failure grabbing mouse");
+        return ret;
+      }
+    }
+  }
+
+  XIFreeDeviceInfo(devices);
+
+  grabbed = true;
+
+  return XIGrabSuccess;
+}
+
+void xi_ungrabDevices()
+{
+  int ndevices;
+  XIDeviceInfo *devices, *device;
+
+  devices = XIQueryDevice(fl_display, XIAllMasterDevices, &ndevices);
+
+  for (int i = 0; i < ndevices; i++) {
+    device = &devices[i];
+
+    if (device->use != XIMasterPointer)
+      continue;
+
+    XIUngrabDevice(fl_display, device->deviceid, CurrentTime);
+  }
+
+  XIFreeDeviceInfo(devices);
+
+  grabbed = false;
+}
+
 static void copyXEventFields(XEvent* dst, const XIDeviceEvent* src)
 {
   // XButtonEvent and XMotionEvent are almost identical, so we
@@ -145,8 +222,12 @@ static int handleXinputEvent(void *event, void *data)
       case XI_TouchBegin:
         if (tracking_touch)
           break;
-        // FIXME: if (fullscreen_active())
-        XIAllowTouchEvents(fl_display, devev->deviceid, devev->detail, devev->event, XIAcceptTouch);
+        if (grabbed)
+          XIAllowTouchEvents(fl_display,
+                             devev->deviceid,
+                             devev->detail,
+                             devev->event,
+                             XIAcceptTouch);
         fakeMotionEvent(devev);
         tracking_touch = true;
         touch_id = devev->detail;
@@ -202,6 +283,8 @@ void enable_touch()
     vlog.error("X Input 2.2 (or newer) is not available. Touch gestures will not be supported.");
 
   Fl::add_system_handler(handleXinputEvent, NULL);
+
+  tracking_touch = grabbed = false;
 #endif
 }
 
