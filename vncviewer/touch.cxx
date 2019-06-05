@@ -120,7 +120,7 @@ void xi2_ungrabDevices()
   grabbed = false;
 }
 
-static void copyXEventFields(XEvent* dst, const XIDeviceEvent* src)
+static void prepXEvent(XEvent* dst, const XIDeviceEvent* src)
 {
   // XButtonEvent and XMotionEvent are almost identical, so we
   // don't have to care which it is for these fields
@@ -150,7 +150,7 @@ static void fakeMotionEvent(const XIDeviceEvent* origEvent)
 
   fakeEvent.type = MotionNotify;
   fakeEvent.xmotion.is_hint = False;
-  copyXEventFields(&fakeEvent, origEvent);
+  prepXEvent(&fakeEvent, origEvent);
 
   fl_handle(fakeEvent);
 }
@@ -164,7 +164,7 @@ static void fakeButtonEvent(bool press, int button,
 
   fakeEvent.type = press ? ButtonPress : ButtonRelease;
   fakeEvent.xbutton.button = button;
-  copyXEventFields(&fakeEvent, origEvent);
+  prepXEvent(&fakeEvent, origEvent);
 
   fl_handle(fakeEvent);
 }
