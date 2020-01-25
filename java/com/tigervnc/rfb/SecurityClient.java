@@ -35,6 +35,7 @@ public class SecurityClient extends Security {
     switch (secType) {
     case Security.secTypeNone: return (new CSecurityNone());
     case Security.secTypeVncAuth: return (new CSecurityVncAuth());
+    case Security.secTypeTLS: return (new CSecurityRFBTLS(this));
     case Security.secTypeVeNCrypt: return (new CSecurityVeNCrypt(this));
     case Security.secTypePlain: return (new CSecurityPlain());
     case Security.secTypeIdent: return (new CSecurityIdent());

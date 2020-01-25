@@ -302,7 +302,10 @@ abstract public class CConnection extends CMsgHandler {
   private void processSecurityResultMsg() {
     vlog.debug("processing security result message");
     int result;
-    if (server.beforeVersion(3,8) && csecurity.getType() == Security.secTypeNone) {
+    if (server.beforeVersion(3,8) &&
+        (csecurity.getType() == Security.secTypeNone ||
+         (csecurity instanceof CSecurityRFBTLS &&
+          csecurity.getType() == Security.secTypeTLSNone))) {
       result = Security.secResultOK;
     } else {
       if (!is.checkNoWait(1)) return;

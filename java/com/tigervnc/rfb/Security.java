@@ -91,9 +91,11 @@ public class Security {
       }
     }
 
+    result.add(secTypeTLS);
+
     for (Iterator<Integer> i = enabledSecTypes.iterator(); i.hasNext(); ) {
       int refType = (Integer)i.next();
-      if (refType < 0x100)
+      if (refType < 0x100 && refType != secTypeTLS)
         result.add(refType);
     }
 
@@ -132,6 +134,8 @@ public class Security {
        return true;
     if (secType == secTypeVeNCrypt)
      return true;
+    if (secType == secTypeTLS)
+     return true;
 
     return false;
   }
@@ -169,7 +173,7 @@ public class Security {
     if (name.equalsIgnoreCase("SSPI"))      return secTypeSSPI;
     if (name.equalsIgnoreCase("SSPIne"))	  return secTypeSSPIne;
     //if (name.equalsIgnoreCase("ultra"))	    return secTypeUltra;
-    //if (name.equalsIgnoreCase("TLS"))	      return secTypeTLS;
+    if (name.equalsIgnoreCase("TLS"))	      return secTypeTLS;
     if (name.equalsIgnoreCase("VeNCrypt"))  return secTypeVeNCrypt;
 
     /* VeNCrypt subtypes */
@@ -197,7 +201,7 @@ public class Security {
     case secTypeSSPI:       return "SSPI";
     case secTypeSSPIne:     return "SSPIne";
     //case secTypeUltra:      return "Ultra";
-    //case secTypeTLS:        return "TLS";
+    case secTypeTLS:        return "TLS";
     case secTypeVeNCrypt:   return "VeNCrypt";
 
     /* VeNCrypt subtypes */

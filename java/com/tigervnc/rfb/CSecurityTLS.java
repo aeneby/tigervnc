@@ -70,10 +70,28 @@ public class CSecurityTLS extends CSecurity {
 
   private void initGlobal()
   {
-    try {
-      ctx = SSLContext.getInstance("TLS");
-    } catch(NoSuchAlgorithmException e) {
-      throw new Exception(e.toString());
+    boolean globalInitDone = false;
+
+    if (!globalInitDone) {
+      try {
+        // Java 7u211, 8u201, and 11.0.2 now disable anonymous cipher suites in
+        // the java.security file, so we have to do this in order to re-enable
+        // them.
+        String disabledAlgorithms =
+          java.security.Security.getProperty("jdk.tls.disabledAlgorithms");
+        disabledAlgorithms =
+          disabledAlgorithms.replaceAll("(^\\s*ECDH_anon\\s*($|,))|((,|^)\\s*ECDH_anon\\s*)", "");
+        disabledAlgorithms =
+          disabledAlgorithms.replaceAll("(^\\s*DH_anon\\s*($|,))|((,|^)\\s*DH_anon\\s*)", "");
+        disabledAlgorithms =
+          disabledAlgorithms.replaceAll("(^\\s*anon\\s*($|,))|((,|^)\\s*anon\\s*)", "");
+        java.security.Security.setProperty("jdk.tls.disabledAlgorithms", disabledAlgorithms);
+        ctx = SSLContext.getInstance("TLS");
+      } catch(NoSuchAlgorithmException e) {
+        throw new Exception(e.toString());
+      }
+
+      globalInitDone = true;
     }
   }
 
@@ -114,6 +132,10 @@ public class CSecurityTLS extends CSecurity {
 // add a finalizer method that calls shutdown
 
   public boolean processMsg(CConnection cc) {
+    return processMsg(cc, true);
+  }
+
+  public boolean processMsg(CConnection cc, boolean readResponse) {
     is = (FdInStream)cc.getInStream();
     os = (FdOutStream)cc.getOutStream();
     client = cc;
@@ -121,20 +143,21 @@ public class CSecurityTLS extends CSecurity {
     initGlobal();
 
     if (manager == null) {
-      if (!is.checkNoWait(1))
-        return false;
+      if (readResponse) {
+        if (!is.checkNoWait(1))
+          return false;
 
-      if (is.readU8() == 0) {
-        int result = is.readU32();
-        String reason;
-        if (result == Security.secResultFailed ||
-            result == Security.secResultTooMany)
-          reason = is.readString();
-        else
-          reason = new String("Authentication failure (protocol error)");
-        throw new AuthFailureException(reason);
+        if (is.readU8() == 0) {
+          int result = is.readU32();
+          String reason;
+          if (result == Security.secResultFailed ||
+              result == Security.secResultTooMany)
+            reason = is.readString();
+          else
+            reason = new String("Authentication failure (protocol error)");
+          throw new AuthFailureException(reason);
+        }
       }
-
       setParam();
     }
 
@@ -168,6 +191,8 @@ public class CSecurityTLS extends CSecurity {
         throw new AuthFailureException(e.toString());
       }
     }
+
+
     SSLSocketFactory sslfactory = ctx.getSocketFactory();
     engine = ctx.createSSLEngine(client.getServerName(),
                                  client.getServerPort());
@@ -469,7 +494,7 @@ public class CSecurityTLS extends CSecurity {
     }
   }
 
-  public final int getType() { return anon ? Security.secTypeTLSNone : Security.secTypeX509None; }
+  public int getType() { return anon ? Security.secTypeTLSNone : Security.secTypeX509None; }
   public final String description()
     { return anon ? "TLS Encryption without VncAuth" : "X509 Encryption without VncAuth"; }
   public boolean isSecure() { return !anon; }
